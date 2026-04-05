@@ -11,8 +11,8 @@ workshop::main() {
 
   local host=""
   local repo=""
-  local plan=""
-  local goal=""
+  local _plan=""
+  local _goal=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -25,11 +25,11 @@ workshop::main() {
       shift 2
       ;;
     --plan)
-      plan="$2"
+      _plan="$2"
       shift 2
       ;;
     --goal)
-      goal="$2"
+      _goal="$2"
       shift 2
       ;;
     *)
