@@ -60,6 +60,27 @@ Host resolution is explicit-first: `workshop.sh` prefers `--host`, then a `MOBIL
 - Durable file-journal state in the target repository
 - Native planning and messaging only as host-provided optimizations
 
+## Quality Tooling
+
+- `./scripts/run-quality.sh` runs the full local quality suite that mirrors the PR check.
+- `./gradlew quality` runs Gradle-backed checks for Kotlin and Gradle files.
+- `npm run format:text:check` and `npm run lint:markdown` cover docs, JSON, and YAML files.
+- `./scripts/install-hooks.sh` configures the repo-managed pre-commit hook that auto-formats staged files before commit.
+
+Local prerequisites:
+
+- Java 17+
+- Node.js 20+ with `npm ci --ignore-scripts`
+- `shellcheck`
+- `shfmt`
+
+Node tooling safeguards:
+
+- The repo pins exact formatter and linter versions in `package.json`.
+- `package-lock.json` is committed and CI installs with `npm ci --ignore-scripts`.
+- `.npmrc` disables package lifecycle scripts, audit prompts, and funding prompts for this repo.
+- The staged-file formatter uses `npx --no-install` so hooks never download ad hoc packages.
+
 ## Planned Repository Layout
 
 ```text
@@ -69,10 +90,15 @@ mobile-workshop/
 ├── settings.gradle.kts
 ├── build/
 │   └── templates/
+├── config/
+│   └── detekt/
 ├── docs/
 │   └── implementation-plan.md
+├── gradle/
+│   └── wrapper/
 ├── examples/
 │   └── mobile-workshop.config.json
+├── scripts/
 └── src/
     ├── core/
     │   ├── agents/
@@ -96,4 +122,4 @@ The repository is currently in the planning and scaffolding stage. The first mil
 
 ## Plan
 
-The authoritative implementation plan lives in [docs/implementation-plan.md](/Users/deepjparekh/Desktop/projects/mobile-workshop/docs/implementation-plan.md).
+The authoritative implementation plan lives in [docs/implementation-plan.md](docs/implementation-plan.md).

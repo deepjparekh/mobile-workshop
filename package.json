@@ -1,0 +1,18 @@
+{
+  "name": "mobile-workshop-tooling",
+  "private": true,
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "format:text": "prettier --write \"README.md\" \"build/templates/**/*.md\" \"config/**/*.yml\" \"docs/**/*.md\" \"examples/**/*.json\" \".github/workflows/**/*.yml\" \"src/core/agents/**/*.md\"",
+    "format:text:check": "prettier --check \"README.md\" \"build/templates/**/*.md\" \"config/**/*.yml\" \"docs/**/*.md\" \"examples/**/*.json\" \".github/workflows/**/*.yml\" \"src/core/agents/**/*.md\"",
+    "lint:markdown": "markdownlint-cli2 \"README.md\" \"build/templates/**/*.md\" \"docs/**/*.md\" \"src/core/agents/**/*.md\""
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.18.1",
+    "prettier": "3.6.2"
+  }
+}
