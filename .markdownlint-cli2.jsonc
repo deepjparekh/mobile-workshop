@@ -1,0 +1,14 @@
+{
+  "globs": [
+    "README.md",
+    "build/templates/**/*.md",
+    "docs/**/*.md",
+    "src/core/agents/**/*.md"
+  ],
+  "config": {
+    "default": true,
+    "line-length": false,
+    "first-line-heading": false,
+    "no-inline-html": false
+  }
+}

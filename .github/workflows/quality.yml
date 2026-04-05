@@ -1,0 +1,41 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install shell tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck shfmt
+
+      - name: Install Node.js dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Make repo scripts executable
+        run: chmod +x gradlew .githooks/pre-commit scripts/*.sh
+
+      - name: Run repository quality checks
+        run: ./scripts/run-quality.sh

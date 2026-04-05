@@ -1,0 +1,8 @@
+.DS_Store
+.gradle/
+dist/
+node_modules/
+build/*
+!build/templates/
+!build/templates/**
+src/**/build/

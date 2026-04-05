@@ -1,0 +1,25 @@
+{
+  "modules": [
+    {
+      "path": "shared",
+      "kind": "kmp_shared",
+      "ownedBy": ["kmp_engineer"]
+    },
+    {
+      "path": "androidApp",
+      "kind": "android_app",
+      "ownedBy": ["android_ui"]
+    },
+    {
+      "path": "iosApp",
+      "kind": "ios_app",
+      "ownedBy": ["ios_ui"]
+    }
+  ],
+  "validation": {
+    "shared": "./gradlew build",
+    "android": "./gradlew assembleDebug",
+    "ios": "xcodebuild"
+  },
+  "retryLimit": 2
+}
