@@ -1,0 +1,64 @@
+name: update-gemini-cli-version
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+
+      - name: Resolve latest stable Gemini CLI release
+        id: latest_release
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const response = await github.request("GET /repos/{owner}/{repo}/releases/latest", {
+              owner: "google-gemini",
+              repo: "gemini-cli",
+            });
+            const tag = response.data.tag_name;
+            if (!tag) {
+              core.setFailed("Could not resolve the latest stable Gemini CLI release.");
+              return;
+            }
+            core.setOutput("tag", tag);
+
+      - name: Update pinned Gemini CLI version
+        env:
+          LATEST_TAG: ${{ steps.latest_release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          perl -0pi -e 's/(GEMINI_CLI_VERSION:\s*)v[0-9]+\.[0-9]+\.[0-9]+/$1'"${LATEST_TAG}"'/' .github/workflows/gemini-review.yml
+
+          if git diff --quiet -- .github/workflows/gemini-review.yml; then
+            echo "No update required."
+            exit 0
+          fi
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/update-gemini-cli-version
+          commit-message: "Update pinned Gemini CLI version"
+          title: "Update pinned Gemini CLI version"
+          body: |
+            Updates the pinned Gemini CLI version in `.github/workflows/gemini-review.yml`
+            to the latest stable upstream release.
+          delete-branch: true
+          labels: |
+            dependencies
+            ci

@@ -67,6 +67,26 @@ Host resolution is explicit-first: `workshop.sh` prefers `--host`, then a `MOBIL
 - `npm run format:text:check` and `npm run lint:markdown` cover docs, JSON, and YAML files.
 - `./scripts/install-hooks.sh` configures the repo-managed pre-commit hook that auto-formats staged files before commit.
 
+## Gemini PR Review
+
+- `.github/workflows/gemini-review.yml` runs Gemini code review on pull requests when they are opened, reopened, marked ready for review, or updated with new commits.
+- `.github/workflows/update-gemini-cli-version.yml` opens a PR when Google publishes a newer stable Gemini CLI release, so the review workflow stays pinned but upgrades remain reviewable.
+- The review workflow fails closed if Gemini authentication is missing or ambiguous, or if its pinned CLI version is changed to an unbounded channel such as `latest`, `preview`, or `nightly`.
+- Fork pull requests are skipped instead of running the review with elevated credentials.
+- The workflow intentionally avoids third-party Gemini review extensions and relies on the base Gemini CLI action plus a constrained GitHub MCP tool set.
+
+Required repository configuration:
+
+- Set exactly one Gemini auth method:
+  - `GEMINI_API_KEY` secret, or
+  - `GOOGLE_API_KEY` secret with `GOOGLE_GENAI_USE_VERTEXAI=true`, or
+  - `GCP_WIF_PROVIDER`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `SERVICE_ACCOUNT_EMAIL` variables with exactly one of `GOOGLE_GENAI_USE_VERTEXAI=true` or `GOOGLE_GENAI_USE_GCA=true`
+
+Optional repository configuration:
+
+- Set `GEMINI_MODEL` to override the default review model
+- Set `APP_ID` and `APP_PRIVATE_KEY` together if you want review comments posted through a GitHub App identity instead of the default workflow token
+
 Local prerequisites:
 
 - Java 17+

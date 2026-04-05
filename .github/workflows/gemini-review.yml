@@ -1,0 +1,195 @@
+name: gemini-review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GEMINI_CLI_VERSION: v0.24.0
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Validate Gemini review configuration
+        env:
+          HAS_APP_ID: ${{ vars.APP_ID != '' }}
+          HAS_APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY != '' }}
+          HAS_GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER != '' }}
+          HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
+          HAS_GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY != '' }}
+          HAS_GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION != '' }}
+          HAS_GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT != '' }}
+          HAS_SERVICE_ACCOUNT_EMAIL: ${{ vars.SERVICE_ACCOUNT_EMAIL != '' }}
+          PINNED_GEMINI_CLI_VERSION: ${{ env.GEMINI_CLI_VERSION }}
+          USE_GEMINI_CODE_ASSIST: ${{ vars.GOOGLE_GENAI_USE_GCA || 'false' }}
+          USE_VERTEX_AI: ${{ vars.GOOGLE_GENAI_USE_VERTEXAI || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PINNED_GEMINI_CLI_VERSION}" ]]; then
+            echo "::error title=Missing Gemini CLI pin::Set env.GEMINI_CLI_VERSION in .github/workflows/gemini-review.yml to an explicit stable release."
+            exit 1
+          fi
+
+          if [[ "${PINNED_GEMINI_CLI_VERSION}" == "latest" || "${PINNED_GEMINI_CLI_VERSION}" == *"preview"* || "${PINNED_GEMINI_CLI_VERSION}" == *"nightly"* ]]; then
+            echo "::error title=Invalid Gemini CLI pin::Use an explicit stable release tag in env.GEMINI_CLI_VERSION instead of latest, preview, or nightly."
+            exit 1
+          fi
+
+          auth_methods=0
+          if [[ "${HAS_GEMINI_API_KEY}" == "true" ]]; then
+            auth_methods=$((auth_methods + 1))
+          fi
+          if [[ "${HAS_GOOGLE_API_KEY}" == "true" ]]; then
+            auth_methods=$((auth_methods + 1))
+          fi
+          if [[ "${HAS_GCP_WIF_PROVIDER}" == "true" ]]; then
+            auth_methods=$((auth_methods + 1))
+          fi
+
+          if [[ ${auth_methods} -eq 0 ]]; then
+            echo "::error title=Missing Gemini authentication::Configure exactly one authentication method for gemini-review: GEMINI_API_KEY, GOOGLE_API_KEY, or GCP_WIF_PROVIDER."
+            exit 1
+          fi
+
+          if [[ ${auth_methods} -gt 1 ]]; then
+            echo "::error title=Ambiguous Gemini authentication::Configure only one of GEMINI_API_KEY, GOOGLE_API_KEY, or GCP_WIF_PROVIDER for gemini-review."
+            exit 1
+          fi
+
+          if [[ "${HAS_APP_ID}" != "${HAS_APP_PRIVATE_KEY}" ]]; then
+            echo "::error title=Incomplete GitHub App configuration::APP_ID and APP_PRIVATE_KEY must be configured together or omitted together."
+            exit 1
+          fi
+
+          if [[ "${HAS_GOOGLE_API_KEY}" == "true" ]]; then
+            if [[ "${HAS_GOOGLE_CLOUD_PROJECT}" != "true" || "${HAS_GOOGLE_CLOUD_LOCATION}" != "true" ]]; then
+              echo "::error title=Incomplete Vertex AI configuration::GOOGLE_API_KEY requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION."
+              exit 1
+            fi
+
+            if [[ "${USE_VERTEX_AI}" != "true" ]]; then
+              echo "::error title=Invalid Vertex AI configuration::GOOGLE_API_KEY requires GOOGLE_GENAI_USE_VERTEXAI=true."
+              exit 1
+            fi
+
+            if [[ "${USE_GEMINI_CODE_ASSIST}" == "true" ]]; then
+              echo "::error title=Invalid Vertex AI configuration::GOOGLE_API_KEY cannot be combined with GOOGLE_GENAI_USE_GCA=true."
+              exit 1
+            fi
+          fi
+
+          if [[ "${HAS_GCP_WIF_PROVIDER}" == "true" ]]; then
+            if [[ "${HAS_GOOGLE_CLOUD_PROJECT}" != "true" || "${HAS_GOOGLE_CLOUD_LOCATION}" != "true" || "${HAS_SERVICE_ACCOUNT_EMAIL}" != "true" ]]; then
+              echo "::error title=Incomplete Workload Identity configuration::GCP_WIF_PROVIDER requires GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, and SERVICE_ACCOUNT_EMAIL."
+              exit 1
+            fi
+
+            if [[ "${USE_VERTEX_AI}" == "${USE_GEMINI_CODE_ASSIST}" ]]; then
+              echo "::error title=Invalid Workload Identity configuration::Set exactly one of GOOGLE_GENAI_USE_VERTEXAI=true or GOOGLE_GENAI_USE_GCA=true when using GCP_WIF_PROVIDER."
+              exit 1
+            fi
+          fi
+
+      - name: Mint identity token
+        id: mint_identity_token
+        if: ${{ vars.APP_ID }}
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Check out repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+
+      - name: Run Gemini pull request review
+        id: gemini_pr_review
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
+          ISSUE_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_TITLE: ${{ github.event.pull_request.title }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        with:
+          gcp_location: ${{ vars.GOOGLE_CLOUD_LOCATION }}
+          gcp_project_id: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          gcp_service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
+          gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_cli_version: ${{ env.GEMINI_CLI_VERSION }}
+          gemini_debug: ${{ fromJSON(vars.GEMINI_DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
+          gemini_model: ${{ vars.GEMINI_MODEL }}
+          github_pr_number: ${{ github.event.pull_request.number }}
+          google_api_key: ${{ secrets.GOOGLE_API_KEY }}
+          upload_artifacts: ${{ vars.UPLOAD_ARTIFACTS || 'false' }}
+          use_gemini_code_assist: ${{ vars.GOOGLE_GENAI_USE_GCA || 'false' }}
+          use_vertex_ai: ${{ vars.GOOGLE_GENAI_USE_VERTEXAI || 'false' }}
+          workflow_name: gemini-review
+          settings: |
+            {
+              "model": {
+                "maxSessionTurns": 20
+              },
+              "telemetry": {
+                "enabled": false
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": [
+                  "run_shell_command(cat)",
+                  "run_shell_command(echo)",
+                  "run_shell_command(grep)",
+                  "run_shell_command(head)",
+                  "run_shell_command(tail)"
+                ]
+              }
+            }
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+            Focus on concrete bugs, regressions, risky shell or CI behavior, unsafe defaults, and missing tests or documentation.
+            Leave actionable review feedback directly on the pull request using the available GitHub review tools.
