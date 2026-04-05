@@ -36,12 +36,14 @@ The goal is to let a user install a native plugin or extension for their preferr
 `mobile-workshop` uses a universal-core monorepo pattern.
 
 - `src/core/agents/` contains strict Markdown agent definitions
-- `src/core/orchestrater/` contains the shell orchestrator and shared shell libraries
+- `src/core/orchestrator/` contains the shell orchestrator and shared shell libraries
 - `src/helper/kotlin/` contains the Kotlin/JVM helper for structured data, state, locking, error extraction, and packaging
 - `build/templates/` contains host-specific adapter and manifest templates
 - `dist/` contains generated host bundles
 
 The runtime is shell-first, but not shell-only. The orchestrator remains a Bash entrypoint, while Kotlin handles the structured logic that would otherwise be brittle in shell.
+
+Host resolution is explicit-first: `workshop.sh` prefers `--host`, then a `MOBILE_WORKSHOP_HOST` value injected by the packaged host launcher, and only then adapter-specific detection probes. Ambiguous detection fails closed instead of guessing.
 
 ## Supported v1 Hosts
 
@@ -74,7 +76,7 @@ mobile-workshop/
 └── src/
     ├── core/
     │   ├── agents/
-    │   └── orchestrater/
+    │   └── orchestrator/
     └── helper/
         └── kotlin/
 ```
