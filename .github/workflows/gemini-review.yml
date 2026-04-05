@@ -16,6 +16,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  GEMINI_CLI_VERSION: v0.24.0
+
 jobs:
   review:
     if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.fork == false }}
@@ -33,15 +36,25 @@ jobs:
           HAS_APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY != '' }}
           HAS_GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER != '' }}
           HAS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
-          HAS_GEMINI_CLI_VERSION: ${{ vars.GEMINI_CLI_VERSION != '' }}
           HAS_GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY != '' }}
           HAS_GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION != '' }}
           HAS_GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT != '' }}
           HAS_SERVICE_ACCOUNT_EMAIL: ${{ vars.SERVICE_ACCOUNT_EMAIL != '' }}
+          PINNED_GEMINI_CLI_VERSION: ${{ env.GEMINI_CLI_VERSION }}
           USE_GEMINI_CODE_ASSIST: ${{ vars.GOOGLE_GENAI_USE_GCA || 'false' }}
           USE_VERTEX_AI: ${{ vars.GOOGLE_GENAI_USE_VERTEXAI || 'false' }}
         run: |
           set -euo pipefail
+
+          if [[ -z "${PINNED_GEMINI_CLI_VERSION}" ]]; then
+            echo "::error title=Missing Gemini CLI pin::Set env.GEMINI_CLI_VERSION in .github/workflows/gemini-review.yml to an explicit stable release."
+            exit 1
+          fi
+
+          if [[ "${PINNED_GEMINI_CLI_VERSION}" == "latest" || "${PINNED_GEMINI_CLI_VERSION}" == *"preview"* || "${PINNED_GEMINI_CLI_VERSION}" == *"nightly"* ]]; then
+            echo "::error title=Invalid Gemini CLI pin::Use an explicit stable release tag in env.GEMINI_CLI_VERSION instead of latest, preview, or nightly."
+            exit 1
+          fi
 
           auth_methods=0
           if [[ "${HAS_GEMINI_API_KEY}" == "true" ]]; then
@@ -52,11 +65,6 @@ jobs:
           fi
           if [[ "${HAS_GCP_WIF_PROVIDER}" == "true" ]]; then
             auth_methods=$((auth_methods + 1))
-          fi
-
-          if [[ "${HAS_GEMINI_CLI_VERSION}" != "true" ]]; then
-            echo "::error title=Missing GEMINI_CLI_VERSION::Set the GEMINI_CLI_VERSION repository variable to an explicit Gemini CLI release instead of relying on the action default."
-            exit 1
           fi
 
           if [[ ${auth_methods} -eq 0 ]]; then
@@ -133,7 +141,7 @@ jobs:
           gcp_service_account: ${{ vars.SERVICE_ACCOUNT_EMAIL }}
           gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_cli_version: ${{ vars.GEMINI_CLI_VERSION }}
+          gemini_cli_version: ${{ env.GEMINI_CLI_VERSION }}
           gemini_debug: ${{ fromJSON(vars.GEMINI_DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
           gemini_model: ${{ vars.GEMINI_MODEL }}
           github_pr_number: ${{ github.event.pull_request.number }}
