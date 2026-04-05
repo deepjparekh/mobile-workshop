@@ -10,17 +10,19 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class LeaseAcquire :
   CliktCommand(name = "lease-acquire", help = "Acquires a fenced lease for a repository.") {
   private val repoPath by option("--repo", help = "Path to the repository").required()
-  private val runId by option("--run-id", help = "Unique ID for this run").required()
-  private val ownerId by option("--owner-id", help = "ID of the owner").required()
-  private val host by option("--host", help = "Host identifier").required()
+  private val optRunId by option("--run-id", help = "Unique ID for this run").required()
+  private val optOwnerId by option("--owner-id", help = "ID of the owner").required()
+  private val optHost by option("--host", help = "Host identifier").required()
   private val leaseDurationMin by option("--duration", help = "Lease duration in minutes").long()
 
   private val json = Json { prettyPrint = true }
@@ -39,10 +41,10 @@ class LeaseAcquire :
       val duration = (leaseDurationMin ?: 5).minutes
       val lease =
         Lease(
-          runId = runId,
-          ownerId = ownerId,
+          runId = optRunId,
+          ownerId = optOwnerId,
           ownerPid = ProcessHandle.current().pid(),
-          host = host,
+          host = optHost,
           leaseEpoch = 1,
           acquiredAt = now.toLocalDateTime(TimeZone.UTC).toString(),
           heartbeatAt = now.toLocalDateTime(TimeZone.UTC).toString(),
@@ -54,17 +56,48 @@ class LeaseAcquire :
     } else {
       // Lock dir exists, check lease file
       if (!leaseFile.exists()) {
-        // This is a weird state, maybe lock dir was created but lease file not written?
-        // For safety, we fail.
         echo("Error: Lock directory exists but lease.json is missing.", err = true)
-        System.exit(1)
+        return
       }
 
-      // In a real scenario we'd check for stale lease here, but the plan says
-      // "If ownership cannot be proven stale, V1 fails closed"
-      // Let's just fail for now as "already locked"
-      echo("Error: Repository is already locked.", err = true)
-      System.exit(1)
+      val currentLease: Lease =
+        try {
+          json.decodeFromString(leaseFile.readText())
+        } catch (e: Exception) {
+          echo("Error: Corrupted lease file.", err = true)
+          return
+        }
+
+      val now = Clock.System.now()
+      val expiresAt = Instant.parse(currentLease.expiresAt)
+
+      if (now > expiresAt) {
+        // Lease is expired. Check if owner is dead (macOS/Linux/Windows JVM 9+)
+        val isOwnerAlive =
+          currentLease.ownerPid?.let { pid -> ProcessHandle.of(pid).isPresent } ?: false
+
+        if (!isOwnerAlive) {
+          echo("Warning: Stale lock detected (expired and owner dead). Repairing...", err = true)
+          // To repair, we overwrite the lease file with a new runId and ownerId
+          val duration = (leaseDurationMin ?: 5).minutes
+          val newLease =
+            Lease(
+              runId = optRunId,
+              ownerId = optOwnerId,
+              ownerPid = ProcessHandle.current().pid(),
+              host = optHost,
+              leaseEpoch = currentLease.leaseEpoch + 1,
+              acquiredAt = now.toLocalDateTime(TimeZone.UTC).toString(),
+              heartbeatAt = now.toLocalDateTime(TimeZone.UTC).toString(),
+              expiresAt = (now + duration).toLocalDateTime(TimeZone.UTC).toString(),
+            )
+          writeLeaseFile(leaseFile, newLease)
+          println(json.encodeToString(newLease))
+          return
+        }
+      }
+
+      echo("Error: Repository is already locked by ${currentLease.ownerId}.", err = true)
     }
   }
 

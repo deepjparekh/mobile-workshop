@@ -79,6 +79,7 @@ class AggregateRunState :
     if (agents.any { it.status == "failed" }) return "partially_failed"
     if (agents.any { it.status == "running" }) return "running"
     if (agents.all { it.status == "completed" }) return "completed"
+    if (agents.all { it.status == "idle" }) return "initialized"
     return "running"
   }
 }
