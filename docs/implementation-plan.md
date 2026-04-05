@@ -350,38 +350,38 @@ Distributions must not reference `src/core/` at runtime.
 
 ### Phase 1
 
-- Scaffold Gradle and repository structure
-- Define the agent contract and config contract
-- Create baseline agent files
+- [x] Scaffold Gradle and repository structure
+- [x] Define the agent contract and config contract
+- [x] Create baseline agent files
 
 ### Phase 2
 
-- Implement Kotlin helper commands for config, workspace discovery, confirmation persistence, state, fenced leases, filesystem safety probes, metrics, and error extraction
-- Implement shell libraries for process orchestration, explicit-first host resolution, and conservative adapter probing
+- [ ] Implement Kotlin helper commands for config, workspace discovery, confirmation persistence, state, fenced leases, filesystem safety probes, metrics, and error extraction
+- [ ] Implement shell libraries for process orchestration, explicit-first host resolution, and conservative adapter probing
 
 ### Phase 3a
 
-- Implement deterministic routing and file-journal baseline execution on confirmed workspace maps
+- [ ] Implement deterministic routing and file-journal baseline execution on confirmed workspace maps
 
 ### Phase 3b
 
-- Implement host-local planner adapters that emit canonical execution graphs
+- [ ] Implement host-local planner adapters that emit canonical execution graphs
 
 ### Phase 3c
 
-- Implement native messaging and native parallelism upgrades where hosts support them
+- [ ] Implement native messaging and native parallelism upgrades where hosts support them
 
 ### Phase 4
 
-- Implement validation gates and self-heal loops
+- [ ] Implement validation gates and self-heal loops
 
 ### Phase 5
 
-- Implement Gradle-based distribution generation for all supported hosts
+- [ ] Implement Gradle-based distribution generation for all supported hosts
 
 ### Phase 6
 
-- Add smoke tests, docs polish, and release artifacts
+- [ ] Add smoke tests, docs polish, and release artifacts
 
 ## Future Improvements
 
