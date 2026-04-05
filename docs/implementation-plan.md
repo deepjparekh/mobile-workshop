@@ -356,8 +356,8 @@ Distributions must not reference `src/core/` at runtime.
 
 ### Phase 2
 
-- [ ] Implement Kotlin helper commands for config, workspace discovery, confirmation persistence, state, fenced leases, filesystem safety probes, metrics, and error extraction
-- [ ] Implement shell libraries for process orchestration, explicit-first host resolution, and conservative adapter probing
+- [x] Implement Kotlin helper commands for config, workspace discovery, confirmation persistence, state, fenced leases, filesystem safety probes, metrics, and error extraction
+- [x] Implement shell libraries for process orchestration, explicit-first host resolution, and conservative adapter probing
 
 ### Phase 3a
 
