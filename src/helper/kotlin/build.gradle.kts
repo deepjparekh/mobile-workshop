@@ -14,7 +14,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
 }
 
-application { mainClass.set("dev.mobileworkshop.helper.MainKt") }
+application { mainClass.set("dev.mobileworkshop.helper.HelperKt") }
 
 tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
   archiveBaseName.set("mobile-workshop-helper")

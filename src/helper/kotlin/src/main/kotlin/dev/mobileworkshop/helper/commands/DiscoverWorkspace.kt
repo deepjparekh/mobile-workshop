@@ -31,7 +31,7 @@ class DiscoverWorkspace :
     val modules = mutableListOf<WorkspaceModule>()
     val skipDirs = setOf(".git", "node_modules", "build", ".gradle", ".context", ".mobile-workshop")
 
-    Files.walk(root.toPath(), 5).forEach { path ->
+    Files.walk(root.toPath(), MAX_DEPTH).forEach { path ->
       val fileName = path.name
       if (skipDirs.contains(fileName)) {
         return@forEach
@@ -63,60 +63,75 @@ class DiscoverWorkspace :
     val files = dir.listFiles()?.map { it.name } ?: emptyList()
     val relativePath = root.relativize(path).toString().takeIf { it.isNotEmpty() } ?: "."
 
-    return when {
-      files.contains("build.gradle.kts") || files.contains("build.gradle") -> {
-        val content =
-          File(dir, "build.gradle.kts").takeIf { it.exists() }?.readText()
-            ?: File(dir, "build.gradle").takeIf { it.exists() }?.readText()
-            ?: ""
+    return detectGradleModule(dir, files, relativePath) ?: detectIosModule(files, relativePath)
+  }
 
-        when {
-          content.contains("kotlin(\"multiplatform\")") ||
-            content.contains("org.jetbrains.kotlin.multiplatform") -> {
-            WorkspaceModule(
-              path = relativePath,
-              kind = ModuleKind.KMP_SHARED,
-              confidence = 0.9,
-              evidence = listOf("build.gradle(.kts) with KMP plugin"),
-              buildTools = listOf("gradle"),
-            )
-          }
-          content.contains("com.android.application") -> {
-            WorkspaceModule(
-              path = relativePath,
-              kind = ModuleKind.ANDROID_APP,
-              confidence = 0.9,
-              evidence = listOf("build.gradle(.kts) with Android application plugin"),
-              buildTools = listOf("gradle"),
-            )
-          }
-          content.contains("com.android.library") -> {
-            WorkspaceModule(
-              path = relativePath,
-              kind = ModuleKind.ANDROID_LIBRARY,
-              confidence = 0.9,
-              evidence = listOf("build.gradle(.kts) with Android library plugin"),
-              buildTools = listOf("gradle"),
-            )
-          }
-          else -> null
-        }
-      }
-      files.any { it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") } ||
-        files.contains("Package.swift") -> {
-        val evidenceFiles =
-          files.filter {
-            it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") || it == "Package.swift"
-          }
+  private fun detectGradleModule(
+    dir: File,
+    files: List<String>,
+    relativePath: String,
+  ): WorkspaceModule? {
+    if (!files.contains("build.gradle.kts") && !files.contains("build.gradle")) return null
+
+    val content =
+      File(dir, "build.gradle.kts").takeIf { it.exists() }?.readText()
+        ?: File(dir, "build.gradle").takeIf { it.exists() }?.readText()
+        ?: ""
+
+    return when {
+      content.contains("kotlin(\"multiplatform\")") ||
+        content.contains("org.jetbrains.kotlin.multiplatform") -> {
         WorkspaceModule(
           path = relativePath,
-          kind = ModuleKind.IOS_APP,
-          confidence = 0.9,
-          evidence = listOf("iOS project found: ${evidenceFiles.joinToString()}"),
-          buildTools = listOf("xcodebuild"),
+          kind = ModuleKind.KMP_SHARED,
+          confidence = HIGH_CONFIDENCE,
+          evidence = listOf("build.gradle(.kts) with KMP plugin"),
+          buildTools = listOf("gradle"),
+        )
+      }
+      content.contains("com.android.application") -> {
+        WorkspaceModule(
+          path = relativePath,
+          kind = ModuleKind.ANDROID_APP,
+          confidence = HIGH_CONFIDENCE,
+          evidence = listOf("build.gradle(.kts) with Android application plugin"),
+          buildTools = listOf("gradle"),
+        )
+      }
+      content.contains("com.android.library") -> {
+        WorkspaceModule(
+          path = relativePath,
+          kind = ModuleKind.ANDROID_LIBRARY,
+          confidence = HIGH_CONFIDENCE,
+          evidence = listOf("build.gradle(.kts) with Android library plugin"),
+          buildTools = listOf("gradle"),
         )
       }
       else -> null
     }
+  }
+
+  private fun detectIosModule(files: List<String>, relativePath: String): WorkspaceModule? {
+    val isIos =
+      files.any { it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") } ||
+        files.contains("Package.swift")
+    if (!isIos) return null
+
+    val evidenceFiles =
+      files.filter {
+        it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") || it == "Package.swift"
+      }
+    return WorkspaceModule(
+      path = relativePath,
+      kind = ModuleKind.IOS_APP,
+      confidence = HIGH_CONFIDENCE,
+      evidence = listOf("iOS project found: ${evidenceFiles.joinToString()}"),
+      buildTools = listOf("xcodebuild"),
+    )
+  }
+
+  companion object {
+    private const val HIGH_CONFIDENCE = 0.9
+    private const val MAX_DEPTH = 5
   }
 }

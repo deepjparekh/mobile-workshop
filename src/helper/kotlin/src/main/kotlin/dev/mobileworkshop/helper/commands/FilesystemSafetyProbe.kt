@@ -6,6 +6,8 @@ import com.github.ajalt.clikt.parameters.options.required
 import java.io.File
 import kotlin.system.measureTimeMillis
 
+class FilesystemSafetyException(message: String) : Exception(message)
+
 class FilesystemSafetyProbe :
   CliktCommand(
     name = "filesystem-safety-probe",
@@ -23,20 +25,20 @@ class FilesystemSafetyProbe :
     val latencies = mutableListOf<Long>()
 
     try {
-      repeat(10) { i ->
+      repeat(ITERATIONS) { i ->
         val time = measureTimeMillis {
           val file = File(probeDir, "test-$i.tmp")
           file.writeText("test")
           val renamedFile = File(probeDir, "test-$i.renamed")
           file.renameTo(renamedFile)
-          if (!renamedFile.exists()) throw Exception("Metadata visibility error")
+          if (!renamedFile.exists()) throw FilesystemSafetyException("Metadata visibility error")
           renamedFile.delete()
         }
         latencies.add(time)
       }
 
       val avgLatency = latencies.average()
-      if (avgLatency > 100) {
+      if (avgLatency > LATENCY_THRESHOLD_MS) {
         echo("FILESYSTEM_SLOW: Average latency ${avgLatency}ms is too high.")
         System.exit(1)
       } else {
@@ -45,5 +47,10 @@ class FilesystemSafetyProbe :
     } finally {
       probeDir.deleteRecursively()
     }
+  }
+
+  companion object {
+    private const val ITERATIONS = 10
+    private const val LATENCY_THRESHOLD_MS = 100
   }
 }

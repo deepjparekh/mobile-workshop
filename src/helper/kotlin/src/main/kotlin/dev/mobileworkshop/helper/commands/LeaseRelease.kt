@@ -8,9 +8,9 @@ import java.io.File
 class LeaseRelease :
   CliktCommand(name = "lease-release", help = "Releases a fenced lease for a repository.") {
   private val repoPath by option("--repo", help = "Path to the repository").required()
-  private val runId by option("--run-id", help = "ID of the current run").required()
 
   override fun run() {
+
     val lockDir = File(repoPath, ".context/state/lock")
     val leaseFile = File(lockDir, "lease.json")
 

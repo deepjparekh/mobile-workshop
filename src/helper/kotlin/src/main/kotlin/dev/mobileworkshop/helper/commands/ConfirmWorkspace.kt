@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import dev.mobileworkshop.helper.models.WorkspaceDetection
 import java.io.File
+import java.io.IOException
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -20,7 +22,7 @@ class ConfirmWorkspace :
     val detection =
       try {
         json.decodeFromString<WorkspaceDetection>(detectionJson)
-      } catch (e: Exception) {
+      } catch (e: SerializationException) {
         echo("Error: Invalid detection JSON: ${e.message}", err = true)
         System.exit(1)
       }
@@ -30,9 +32,13 @@ class ConfirmWorkspace :
 
     val configFile = File(dotMobileWorkshop, "config.json")
 
-    // Simple config format for V1: just the modules
-    configFile.writeText(json.encodeToString(detection))
-
-    println("Workspace map confirmed and persisted to ${configFile.absolutePath}")
+    try {
+      // Simple config format for V1: just the modules
+      configFile.writeText(json.encodeToString(detection))
+      println("Workspace map confirmed and persisted to ${configFile.absolutePath}")
+    } catch (e: IOException) {
+      echo("Error: Could not write config file: ${e.message}", err = true)
+      System.exit(1)
+    }
   }
 }

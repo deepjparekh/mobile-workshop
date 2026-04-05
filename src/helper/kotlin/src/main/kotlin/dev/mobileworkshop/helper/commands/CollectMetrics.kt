@@ -5,7 +5,9 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.long
 import java.io.File
+import java.io.IOException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -39,18 +41,21 @@ class CollectMetrics :
       agentsDir
         .listFiles { _, name -> name.endsWith(".json") }
         ?.forEach { file ->
-          // In V1, we just report success/failure from the agent state.
-          // In a future version, we could measure duration more accurately.
           try {
             val state =
               Json.decodeFromString<dev.mobileworkshop.helper.models.AgentState>(file.readText())
             agentMetrics[state.agentId] =
-              AgentMetrics(
-                durationMs = 0, // Mock for now, V1 doesn't track agent-specific start/end times yet
-                success = state.status == "completed",
-              )
-          } catch (e: Exception) {
-            echo("Warning: Could not parse agent state for metrics: ${file.name}", err = true)
+              AgentMetrics(durationMs = MOCK_DURATION_MS, success = state.status == "completed")
+          } catch (e: SerializationException) {
+            echo(
+              "Warning: Could not parse agent state for metrics: ${file.name}: ${e.message}",
+              err = true,
+            )
+          } catch (e: IOException) {
+            echo(
+              "Warning: Could not read agent state for metrics: ${file.name}: ${e.message}",
+              err = true,
+            )
           }
         }
     }
@@ -62,5 +67,9 @@ class CollectMetrics :
     metricsFile.writeText(json.encodeToString(metrics))
 
     println("Metrics for $runId collected.")
+  }
+
+  companion object {
+    private const val MOCK_DURATION_MS = 0L
   }
 }

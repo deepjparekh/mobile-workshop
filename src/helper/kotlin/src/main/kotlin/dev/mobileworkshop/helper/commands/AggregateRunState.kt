@@ -6,11 +6,13 @@ import com.github.ajalt.clikt.parameters.options.required
 import dev.mobileworkshop.helper.models.AgentState
 import dev.mobileworkshop.helper.models.RunState
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -37,7 +39,9 @@ class AggregateRunState :
           try {
             val state = json.decodeFromString<AgentState>(file.readText())
             agentStates[state.agentId] = state
-          } catch (e: Exception) {
+          } catch (e: SerializationException) {
+            echo("Warning: Could not read agent state from ${file.name}: ${e.message}", err = true)
+          } catch (e: IOException) {
             echo("Warning: Could not read agent state from ${file.name}: ${e.message}", err = true)
           }
         }
@@ -47,7 +51,11 @@ class AggregateRunState :
       if (runFile.exists()) {
         try {
           json.decodeFromString<RunState>(runFile.readText())
-        } catch (e: Exception) {
+        } catch (e: SerializationException) {
+          echo("Warning: Could not read existing run state: ${e.message}", err = true)
+          null
+        } catch (e: IOException) {
+          echo("Warning: Could not read existing run state: ${e.message}", err = true)
           null
         }
       } else null
@@ -75,11 +83,12 @@ class AggregateRunState :
   }
 
   private fun determineRunStatus(agents: Collection<AgentState>): String {
-    if (agents.isEmpty()) return "initialized"
-    if (agents.any { it.status == "failed" }) return "partially_failed"
-    if (agents.any { it.status == "running" }) return "running"
-    if (agents.all { it.status == "completed" }) return "completed"
-    if (agents.all { it.status == "idle" }) return "initialized"
-    return "running"
+    return when {
+      agents.isEmpty() || agents.all { it.status == "idle" } -> "initialized"
+      agents.any { it.status == "failed" } -> "partially_failed"
+      agents.any { it.status == "running" } -> "running"
+      agents.all { it.status == "completed" } -> "completed"
+      else -> "running"
+    }
   }
 }

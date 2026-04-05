@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import dev.mobileworkshop.helper.models.WorkspaceDetection
 import java.io.File
+import java.io.IOException
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 class ValidateConfig :
@@ -27,8 +29,11 @@ class ValidateConfig :
       // In V1, config is just the confirmed workspace detection
       json.decodeFromString<WorkspaceDetection>(configFile.readText())
       println("Config is valid.")
-    } catch (e: Exception) {
-      echo("Error: Invalid config: ${e.message}", err = true)
+    } catch (e: SerializationException) {
+      echo("Error: Invalid config format: ${e.message}", err = true)
+      System.exit(1)
+    } catch (e: IOException) {
+      echo("Error: Could not read config file: ${e.message}", err = true)
       System.exit(1)
     }
   }

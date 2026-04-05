@@ -6,15 +6,19 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.long
 import dev.mobileworkshop.helper.models.Lease
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+
+class LeaseException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 class LeaseRenew : CliktCommand(name = "lease-renew", help = "Renews a fenced lease.") {
   private val repoPath by option("--repo", help = "Path to the repository").required()
@@ -37,9 +41,12 @@ class LeaseRenew : CliktCommand(name = "lease-renew", help = "Renews a fenced le
     val currentLease: Lease =
       try {
         json.decodeFromString<Lease>(leaseFile.readText())
-      } catch (e: Exception) {
+      } catch (e: SerializationException) {
         echo("Error: Corrupted lease file: ${e.message}", err = true)
-        throw RuntimeException("Lease file corrupted", e)
+        throw LeaseException("Lease file corrupted during serialization", e)
+      } catch (e: IOException) {
+        echo("Error: Could not read lease file: ${e.message}", err = true)
+        throw LeaseException("Lease file read failed", e)
       }
 
     if (
@@ -52,7 +59,7 @@ class LeaseRenew : CliktCommand(name = "lease-renew", help = "Renews a fenced le
     }
 
     val now = Clock.System.now()
-    val duration = (leaseDurationMin ?: 5).minutes
+    val duration = (leaseDurationMin ?: DEFAULT_DURATION_MIN).minutes
     val newLease =
       currentLease.copy(
         leaseEpoch = currentLease.leaseEpoch + 1,
@@ -73,5 +80,9 @@ class LeaseRenew : CliktCommand(name = "lease-renew", help = "Renews a fenced le
       StandardCopyOption.ATOMIC_MOVE,
       StandardCopyOption.REPLACE_EXISTING,
     )
+  }
+
+  companion object {
+    private const val DEFAULT_DURATION_MIN = 5L
   }
 }
