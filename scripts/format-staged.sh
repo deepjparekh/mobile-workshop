@@ -12,15 +12,15 @@ shell_files=()
 
 while IFS= read -r -d '' file; do
   case "${file}" in
-    *.kt|*.kts)
-      kotlin_changed=1
-      ;;
-    *.md|*.json|*.yaml|*.yml)
-      doc_files+=("${file}")
-      ;;
-    *.sh|.githooks/pre-commit)
-      shell_files+=("${file}")
-      ;;
+  *.kt | *.kts)
+    kotlin_changed=1
+    ;;
+  *.md | *.json | *.yaml | *.yml)
+    doc_files+=("${file}")
+    ;;
+  *.sh | .githooks/pre-commit)
+    shell_files+=("${file}")
+    ;;
   esac
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 

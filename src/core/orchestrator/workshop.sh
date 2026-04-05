@@ -9,14 +9,14 @@ workshop::main() {
   local command="${1:-help}"
 
   case "${command}" in
-    run|doctor|resume)
-      workshop::log "mobile-workshop orchestrator scaffold"
-      workshop::log "command: ${command}"
-      workshop::log "implementation pending"
-      ;;
-    *)
-      workshop::usage
-      ;;
+  run | doctor | resume)
+    workshop::log "mobile-workshop orchestrator scaffold"
+    workshop::log "command: ${command}"
+    workshop::log "implementation pending"
+    ;;
+  *)
+    workshop::usage
+    ;;
   esac
 }
 
