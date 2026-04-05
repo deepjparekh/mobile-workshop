@@ -63,9 +63,11 @@ workshop::resolve_host() {
 }
 
 workshop::call_helper() {
-  local jar_path="${SCRIPT_DIR}/../../helper/kotlin/build/libs/mobile-workshop-helper-0.1.0-SNAPSHOT-all.jar"
+  local jar_path
+  jar_path=$(find "${SCRIPT_DIR}/../../helper/kotlin/build/libs" -name "mobile-workshop-helper-*-all.jar" | head -n 1)
+
   if [[ ! -f "${jar_path}" ]]; then
-    workshop::err "Helper jar not found at ${jar_path}. Run ./gradlew :helper:kotlin:shadowJar first."
+    workshop::err "Helper jar not found. Run ./gradlew :helper:kotlin:shadowJar first."
     return 1
   fi
   java -jar "${jar_path}" "$@"

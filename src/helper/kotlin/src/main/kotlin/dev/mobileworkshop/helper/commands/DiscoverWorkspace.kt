@@ -34,8 +34,6 @@ class DiscoverWorkspace :
     Files.walk(root.toPath(), 5).forEach { path ->
       val fileName = path.name
       if (skipDirs.contains(fileName)) {
-        // Actually, Files.walk doesn't easily allow skipping subtrees in forEach
-        // But we can filter
         return@forEach
       }
       if (Files.isDirectory(path)) {
@@ -65,7 +63,6 @@ class DiscoverWorkspace :
     val files = dir.listFiles()?.map { it.name } ?: emptyList()
     val relativePath = root.relativize(path).toString().takeIf { it.isNotEmpty() } ?: "."
 
-    // Simple detection logic
     return when {
       files.contains("build.gradle.kts") || files.contains("build.gradle") -> {
         val content =
@@ -107,11 +104,15 @@ class DiscoverWorkspace :
       }
       files.any { it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") } ||
         files.contains("Package.swift") -> {
+        val evidenceFiles =
+          files.filter {
+            it.endsWith(".xcodeproj") || it.endsWith(".xcworkspace") || it == "Package.swift"
+          }
         WorkspaceModule(
           path = relativePath,
           kind = ModuleKind.IOS_APP,
-          confidence = 0.8,
-          evidence = listOf("iOS project/workspace or Package.swift found"),
+          confidence = 0.9,
+          evidence = listOf("iOS project found: ${evidenceFiles.joinToString()}"),
           buildTools = listOf("xcodebuild"),
         )
       }

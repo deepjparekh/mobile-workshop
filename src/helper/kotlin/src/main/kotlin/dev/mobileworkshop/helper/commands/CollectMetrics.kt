@@ -28,15 +28,35 @@ class CollectMetrics :
   private val json = Json { prettyPrint = true }
 
   override fun run() {
+    val stateDir = File(repoPath, ".context/state")
+    val agentsDir = File(stateDir, "agents")
     val metricsDir = File(repoPath, ".context/metrics")
     if (!metricsDir.exists()) metricsDir.mkdirs()
 
-    // In V1, we just collect whatever metrics we can find.
-    // For now, we'll assume we have some way to know agent metrics.
-    // Actually, we'll just store the total for now.
+    val agentMetrics = mutableMapOf<String, AgentMetrics>()
+
+    if (agentsDir.exists()) {
+      agentsDir
+        .listFiles { _, name -> name.endsWith(".json") }
+        ?.forEach { file ->
+          // In V1, we just report success/failure from the agent state.
+          // In a future version, we could measure duration more accurately.
+          try {
+            val state =
+              Json.decodeFromString<dev.mobileworkshop.helper.models.AgentState>(file.readText())
+            agentMetrics[state.agentId] =
+              AgentMetrics(
+                durationMs = 0, // Mock for now, V1 doesn't track agent-specific start/end times yet
+                success = state.status == "completed",
+              )
+          } catch (e: Exception) {
+            echo("Warning: Could not parse agent state for metrics: ${file.name}", err = true)
+          }
+        }
+    }
 
     val metrics =
-      RunMetrics(runId = runId, totalDurationMs = totalDurationMs, agentMetrics = emptyMap())
+      RunMetrics(runId = runId, totalDurationMs = totalDurationMs, agentMetrics = agentMetrics)
 
     val metricsFile = File(metricsDir, "run-metrics.json")
     metricsFile.writeText(json.encodeToString(metrics))
